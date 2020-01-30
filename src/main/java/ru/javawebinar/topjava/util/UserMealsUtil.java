@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class UserMealsUtil {
@@ -22,23 +23,30 @@ public class UserMealsUtil {
                 new UserMeal(LocalDateTime.of(2020, Month.JANUARY, 31, 20, 0), "Ужин", 410)
         );
 
-//        List<UserMealWithExcess> mealsTo = filteredByCycles(meals, LocalTime.of(7, 0), LocalTime.of(12, 0), 2000);
-//        mealsTo.forEach(System.out::println);
+        List<UserMealWithExcess> mealsTo = filteredByCycles(meals, LocalTime.of(7, 0), LocalTime.of(12, 0), 2000);
+        mealsTo.forEach(System.out::println);
 
-        System.out.println(filteredByStreams(meals, LocalTime.of(7, 0), LocalTime.of(12, 0), 2000));
+//        System.out.println(filteredByStreams(meals, LocalTime.of(7, 0), LocalTime.of(12, 0), 2000));
     }
 
     public static List<UserMealWithExcess> filteredByCycles(List<UserMeal> meals, LocalTime startTime, LocalTime endTime, int caloriesPerDay) {
         Map<LocalDate, Integer> caloriesByDays = new HashMap<>();
+        Map<LocalDate, AtomicBoolean> excessByDates = new HashMap<>();
         List<UserMealWithExcess> result = new ArrayList<>();
         meals.forEach(userMeal -> {
-            caloriesByDays.put(userMeal.getDateTime().toLocalDate(), userMeal.getCalories() + caloriesByDays.getOrDefault(userMeal.getDateTime().toLocalDate(), 0));
-        });
-        meals.forEach(userMeal -> {
+            caloriesByDays.put(userMeal.getDateTime().toLocalDate(),
+                    userMeal.getCalories() + caloriesByDays.getOrDefault(userMeal.getDateTime().toLocalDate(),
+                            0));
+            excessByDates.merge(userMeal.getDateTime().toLocalDate(),
+                    new AtomicBoolean(caloriesByDays.get(userMeal.getDateTime().toLocalDate()) > caloriesPerDay),
+                    (oldVal, newVal) -> {
+                        oldVal.set(newVal.get());
+                        return oldVal;});
             if (TimeUtil.isBetweenInclusive(userMeal.getDateTime().toLocalTime(), startTime, endTime)) {
-                result.add(new UserMealWithExcess(userMeal.getDateTime(), userMeal.getDescription(), userMeal.getCalories(), caloriesByDays.get(userMeal.getDateTime().toLocalDate()) <= caloriesPerDay));
+                result.add(new UserMealWithExcess(userMeal.getDateTime(), userMeal.getDescription(), userMeal.getCalories(), excessByDates.get(userMeal.getDateTime().toLocalDate())));
             }
         });
+
         return result;
     }
 
@@ -52,7 +60,7 @@ public class UserMealsUtil {
                         userMeal.getDateTime(),
                         userMeal.getDescription(),
                         userMeal.getCalories(),
-                        caloriesPerDay >= caloriesByDays.get(userMeal.getDateTime().toLocalDate())))
+                        new AtomicBoolean( caloriesPerDay >= caloriesByDays.get(userMeal.getDateTime().toLocalDate()))))
                 .collect(Collectors.toList());
     }
 }

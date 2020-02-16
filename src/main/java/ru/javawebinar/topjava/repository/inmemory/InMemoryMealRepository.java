@@ -1,5 +1,6 @@
 package ru.javawebinar.topjava.repository.inmemory;
 
+import org.springframework.stereotype.Repository;
 import ru.javawebinar.topjava.model.Meal;
 import ru.javawebinar.topjava.repository.MealRepository;
 
@@ -9,10 +10,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+@Repository
 public class InMemoryMealRepository implements MealRepository {
     private Map<Integer, Map<Integer, Meal>> repository = new ConcurrentHashMap<>();
     private AtomicInteger counter = new AtomicInteger(0);
 
+    {
+
+    }
 
     @Override
     public Meal save(Meal meal, int userId) {
@@ -23,6 +28,7 @@ public class InMemoryMealRepository implements MealRepository {
         }
         Map<Integer, Meal> usersMeals = repository.computeIfAbsent(userId, ConcurrentHashMap::new);
         usersMeals.put(meal.getId(), meal);
+        repository.put(userId, usersMeals);
         return meal;
     }
 
@@ -36,7 +42,7 @@ public class InMemoryMealRepository implements MealRepository {
     public Meal get(int mealId, int userId) {
         Map<Integer, Meal> usersMeals = repository.get(userId);
 
-        return usersMeals != null ? null : usersMeals.get(mealId);
+        return usersMeals == null ? null : usersMeals.get(mealId);
     }
 
     @Override
